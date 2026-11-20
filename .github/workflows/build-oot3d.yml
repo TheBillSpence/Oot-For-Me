@@ -22,7 +22,6 @@ jobs:
           for tag in $(gh release list --repo OTPR26/Ocarina-ReTuned --limit 5 --json tagName -q '.[].tagName'); do
             gh release download "$tag" --repo OTPR26/Ocarina-ReTuned --dir work/raw --clobber || true
           done
-          ls -la work/raw
 
           MAC_PKG=$(find work/raw -iname "*mac*" \( -iname "*.zip" -o -iname "*.dmg" -o -iname "*.tar.gz" \) | head -n 1)
           IOS_PKG=$(find work/raw -iname "*ios*" \( -iname "*.ipa" -o -iname "*.zip" \) | head -n 1)
@@ -60,7 +59,7 @@ jobs:
 
           openssl req -x509 -newkey rsa:2048 -nodes -keyout work/key.pem -out work/cert.pem -days 1 -subj "/CN=TempSigner" \
             -addext "keyUsage=digitalSignature" -addext "extendedKeyUsage=codeSigning"
-          openssl pkcs12 -export -out work/temp.p12 -inkey work/key.pem -in work/cert.pem -passout pass:temp_pass
+          openssl pkcs12 -legacy -export -out work/temp.p12 -inkey work/key.pem -in work/cert.pem -passout pass:temp_pass
 
           security import work/temp.p12 -k build.keychain -P "temp_pass" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "temp_pass" build.keychain
