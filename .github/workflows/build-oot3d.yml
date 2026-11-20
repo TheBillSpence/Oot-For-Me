@@ -27,12 +27,11 @@ jobs:
           mkdir -p work/compile_root work/out
           APP="/Applications/Ocarina ReTuned.app"
 
-          # Auto-locate files inside the Mac .app bundle and template .ipa
           PREP_SCRIPT=$(find "$APP" -name "prepare_apple_app.py" | head -n 1)
           KIT_JSON=$(find "$APP" -name "kit.json" | head -n 1)
           HOST_BIN=$(find "$APP/Contents/MacOS" -type f -perm +111 | head -n 1)
           CTRL_DB=$(find "$APP" -name "gamecontrollerdb.txt" | head -n 1)
-          IOS_TEMPLATE=$(find "work/ios/Payload" -name "*.app" -maxdepth 2 | head -n 1)
+          IOS_TEMPLATE=$(find "work/ios" -name "*.app" -maxdepth 4 | head -n 1)
           BUNDLED_PY=$(find "$APP" -path "*/bin/python3" | head -n 1)
           PYTHON_BIN="${BUNDLED_PY:-python3}"
 
