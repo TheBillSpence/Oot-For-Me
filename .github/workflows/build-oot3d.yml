@@ -65,7 +65,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "temp_pass" build.keychain
 
           CERT_SHA1=$(security find-identity -v -p codesigning build.keychain | head -n 1 | awk '{print $2}')
-          python3 -c 'import os; open(os.environ["GITHUB_ENV"], "a").write("CERT_SHA1=" + os.environ["SHA1"] + "\n")' SHA1="$CERT_SHA1"
+          SHA1="$CERT_SHA1" python3 -c 'import os; open(os.environ["GITHUB_ENV"], "a").write("CERT_SHA1=" + os.environ["SHA1"] + "\n")'
 
           touch work/dummy.mobileprovision
 
