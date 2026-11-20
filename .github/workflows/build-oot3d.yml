@@ -14,11 +14,11 @@ jobs:
           brew list cmake || brew install cmake
           brew list ninja || brew install ninja
 
-      - name: Download Latest Mac Preview & Unsigned iOS IPA
+      - name: Download Latest mac Preview & Unsigned iOS IPA
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p work/mac work/ios
+          mkdir -p work/dl1 work/dl2
           python3 -  $GITHUB_ENV
 
           touch work/dummy.mobileprovision
@@ -40,7 +40,7 @@ jobs:
           KIT_JSON=$(find "$APP" -name "kit.json" | head -n 1)
           HOST_BIN=$(find "$APP/Contents/MacOS" -type f -perm +111 | head -n 1)
           CTRL_DB=$(find "$APP" -name "gamecontrollerdb.txt" | head -n 1)
-          IOS_TEMPLATE=$(find "work/ios" -name "*.app" -maxdepth 4 | head -n 1)
+          IOS_TEMPLATE=$(find "work/dl2" -name "*.app" -maxdepth 4 | head -n 1)
 
           "$PYTHON_BIN" "$PREP_SCRIPT" \
             --kit "$KIT_JSON" \
