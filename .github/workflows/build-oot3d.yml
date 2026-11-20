@@ -18,21 +18,27 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p work/dl1 work/dl2
-          python3 -c 'import json, os, sys, urllib.request; req = urllib.request.Request("https://github.com", headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"], "User-Agent": "Actions"}); rels = json.loads(urllib.request.urlopen(req).read().decode()); assets = [a for r in rels[:10] for a in r["assets"]]; mac = next(a["browser_download_url"] for a in assets if ("mac" in a["name"].lower() or "darwin" in a["name"].lower()) and a["name"].lower().endswith((".zip", ".dmg", ".tar.gz"))); ios = next(a["browser_download_url"] for a in assets if ("ios" in a["name"].lower() or "iphone" in a["name"].lower()) and a["name"].lower().endswith((".ipa", ".zip"))); print("Mac:", mac); print("iOS:", ios); urllib.request.urlretrieve(mac, "work/mac_pkg"); urllib.request.urlretrieve(ios, "work/ios_pkg")'
+          mkdir -p work/dl1 work/dl2 work/raw
+          for tag in $(gh release list --repo OTPR26/Ocarina-ReTuned --limit 5 --json tagName -q '.[].tagName'); do
+            gh release download "$tag" --repo OTPR26/Ocarina-ReTuned --dir work/raw --clobber || true
+          done
+          ls -la work/raw
 
-          if file work/mac_pkg | grep -qi "Zip"; then
-            unzip -q work/mac_pkg -d work/dl1
+          MAC_PKG=$(find work/raw -iname "*mac*" \( -iname "*.zip" -o -iname "*.dmg" -o -iname "*.tar.gz" \) | head -n 1)
+          IOS_PKG=$(find work/raw -iname "*ios*" \( -iname "*.ipa" -o -iname "*.zip" \) | head -n 1)
+
+          if file "$MAC_PKG" | grep -qi "Zip"; then
+            unzip -q "$MAC_PKG" -d work/dl1
             APP_PATH=$(find work/dl1 -name "*.app" -maxdepth 4 | head -n 1)
             ditto "$APP_PATH" "/Applications/Ocarina ReTuned.app"
           else
-            hdiutil attach work/mac_pkg -mountpoint work/dmg_mount -nobrowse
+            hdiutil attach "$MAC_PKG" -mountpoint work/dmg_mount -nobrowse
             APP_PATH=$(find work/dmg_mount -name "*.app" -maxdepth 3 | head -n 1)
             ditto "$APP_PATH" "/Applications/Ocarina ReTuned.app"
             hdiutil detach work/dmg_mount
           fi
 
-          unzip -q work/ios_pkg -d work/dl2
+          unzip -q "$IOS_PKG" -d work/dl2
           test -d "/Applications/Ocarina ReTuned.app"
 
       - name: Download and Decrypt ROM
