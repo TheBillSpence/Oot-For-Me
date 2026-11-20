@@ -14,46 +14,11 @@ jobs:
           brew list ninja || brew install ninja
 
       - name: Download Latest Mac Preview & Unsigned iOS IPA
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p work/mac work/ios
-          RELEASE_JSON=$(curl -s https://github.com)
-          MAC_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | test("mac.*\\.zip$|mac.*\\.dmg$"; "i")) | .browser_download_url' | head -n 1)
-          IOS_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | test("ios.*\\.ipa$"; "i")) | .browser_download_url' | head -n 1)
-
-          curl -L "$MAC_URL" -o work/mac_preview.zip
-          unzip -q work/mac_preview.zip -d work/mac
-          APP_PATH=$(find work/mac -name "*.app" -maxdepth 3 | head -n 1)
-          cp -R "$APP_PATH" "/Applications/Ocarina ReTuned.app"
-
-          curl -L "$IOS_URL" -o work/unsigned.ipa
-          unzip -q work/unsigned.ipa -d work/ios
-
-      - name: Download & Decrypt ROM
-        env:
-          ROM_URL: ${{ secrets.ROM_URL }}
-          ROM_PASS: ${{ secrets.ROM_PASS }}
-        run: |
-          curl -L "$ROM_URL" -o work/game.7z
-          7z x work/game.7z -p"$ROM_PASS" -owork/
-          ROM_FILE=$(find work/ -maxdepth 1 \( -name "*.3ds" -o -name "*.cci" \) | head -n 1)
-          mv "$ROM_FILE" work/game.3ds
-
-      - name: Create Temporary Self-Signed Cert & Dummy Profile
-        run: |
-          security create-keychain -p "temp_pass" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "temp_pass" build.keychain
-          security set-keychain-settings -t 3600 -u build.keychain
-
-          openssl req -x509 -newkey rsa:2048 -nodes -keyout work/key.pem -out work/cert.pem -days 1 -subj "/CN=TempSigner" \
-            -addext "keyUsage=digitalSignature" -addext "extendedKeyUsage=codeSigning"
-          openssl pkcs12 -export -out work/temp.p12 -inkey work/key.pem -in work/cert.pem -passout pass:temp_pass
-
-          security import work/temp.p12 -k build.keychain -P "temp_pass" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "temp_pass" build.keychain
-
-          CERT_SHA1=$(security find-identity -v -p codesigning build.keychain | head -n 1 | awk '{print $2}')
-          echo "CERT_SHA1=$CERT_SHA1" >> $GITHUB_ENV
+          python3 -  $GITHUB_ENV
 
           touch work/dummy.mobileprovision
 
