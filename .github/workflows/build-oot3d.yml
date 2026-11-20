@@ -14,12 +14,53 @@ jobs:
           brew list cmake || brew install cmake
           brew list ninja || brew install ninja
 
-      - name: Download Latest mac Preview & Unsigned iOS IPA
+      - name: Download Latest Mac Preview and Unsigned iOS IPA
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p work/dl1 work/dl2
-          python3 -  $GITHUB_ENV
+          python3 -c 'import json, os, sys, urllib.request; req = urllib.request.Request("https://github.com", headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"], "User-Agent": "Actions"}); rels = json.loads(urllib.request.urlopen(req).read().decode()); assets = [a for r in rels[:10] for a in r["assets"]]; mac = next(a["browser_download_url"] for a in assets if ("mac" in a["name"].lower() or "darwin" in a["name"].lower()) and a["name"].lower().endswith((".zip", ".dmg", ".tar.gz"))); ios = next(a["browser_download_url"] for a in assets if ("ios" in a["name"].lower() or "iphone" in a["name"].lower()) and a["name"].lower().endswith((".ipa", ".zip"))); print("Mac:", mac); print("iOS:", ios); urllib.request.urlretrieve(mac, "work/mac_pkg"); urllib.request.urlretrieve(ios, "work/ios_pkg")'
+
+          if file work/mac_pkg | grep -qi "Zip"; then
+            unzip -q work/mac_pkg -d work/dl1
+            APP_PATH=$(find work/dl1 -name "*.app" -maxdepth 4 | head -n 1)
+            ditto "$APP_PATH" "/Applications/Ocarina ReTuned.app"
+          else
+            hdiutil attach work/mac_pkg -mountpoint work/dmg_mount -nobrowse
+            APP_PATH=$(find work/dmg_mount -name "*.app" -maxdepth 3 | head -n 1)
+            ditto "$APP_PATH" "/Applications/Ocarina ReTuned.app"
+            hdiutil detach work/dmg_mount
+          fi
+
+          unzip -q work/ios_pkg -d work/dl2
+          test -d "/Applications/Ocarina ReTuned.app"
+
+      - name: Download and Decrypt ROM
+        env:
+          ROM_URL: ${{ secrets.ROM_URL }}
+          ROM_PASS: ${{ secrets.ROM_PASS }}
+        run: |
+          curl -fL "$ROM_URL" -o work/game.7z
+          7z x work/game.7z -p"$ROM_PASS" -owork/
+          ROM_FILE=$(find work/ -maxdepth 1 \( -name "*.3ds" -o -name "*.cci" \) | head -n 1)
+          mv "$ROM_FILE" work/game.3ds
+
+      - name: Create Temporary Self-Signed Cert and Dummy Profile
+        run: |
+          security create-keychain -p "temp_pass" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "temp_pass" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+
+          openssl req -x509 -newkey rsa:2048 -nodes -keyout work/key.pem -out work/cert.pem -days 1 -subj "/CN=TempSigner" \
+            -addext "keyUsage=digitalSignature" -addext "extendedKeyUsage=codeSigning"
+          openssl pkcs12 -export -out work/temp.p12 -inkey work/key.pem -in work/cert.pem -passout pass:temp_pass
+
+          security import work/temp.p12 -k build.keychain -P "temp_pass" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "temp_pass" build.keychain
+
+          CERT_SHA1=$(security find-identity -v -p codesigning build.keychain | head -n 1 | awk '{print $2}')
+          python3 -c 'import os; open(os.environ["GITHUB_ENV"], "a").write("CERT_SHA1=" + os.environ["SHA1"] + "\n")' SHA1="$CERT_SHA1"
 
           touch work/dummy.mobileprovision
 
