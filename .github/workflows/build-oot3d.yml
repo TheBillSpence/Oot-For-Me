@@ -64,14 +64,12 @@ jobs:
           security import work/temp.p12 -k build.keychain -P "temp_pass" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "temp_pass" build.keychain
 
-          CERT_SHA1=$(security find-identity -v -p codesigning build.keychain | grep -oE '[0-9A-F]{40}' | head -n 1)
+          CERT_SHA1=$(security find-identity -p codesigning build.keychain | grep -oE '[0-9A-F]{40}' | head -n 1)
           echo "Extracted SHA1: $CERT_SHA1"
           SHA1="$CERT_SHA1" python3 -c 'import os; open(os.environ["GITHUB_ENV"], "a").write("CERT_SHA1=" + os.environ["SHA1"] + "\n")'
 
-          # Generate a valid CMS-signed provisioning profile plist for security cms -D
-          python3 -c 'import plistlib; data = {"AppIDName": "OcarinaReTuned", "ApplicationIdentifierPrefix": ["TEAMID1234"], "CreationDate": __import__("datetime").datetime.now(__import__("datetime").timezone.utc), "ExpirationDate": __import__("datetime").datetime.now(__import__("datetime").timezone.utc) + __import__("datetime").timedelta(days=7), "Name": "TempProfile", "ProvisionedDevices": ["00000000-0000000000000000"], "TeamIdentifier": ["TEAMID1234"], "TeamName": "Temp", "TimeToLive": 7, "UUID": "11111111-1111-1111-1111-111111111111", "Version": 1, "Entitlements": {"application-identifier": "TEAMID1234.*", "com.apple.developer.team-identifier": "TEAMID1234", "get-task-allow": True}}; open("work/profile.plist", "wb").write(plistlib.dumps(data))'
+          python3 -c 'import plistlib, datetime; now = datetime.datetime.now(datetime.timezone.utc); data = {"AppIDName": "OcarinaReTuned", "ApplicationIdentifierPrefix": ["TEAMID1234"], "CreationDate": now, "ExpirationDate": now + datetime.timedelta(days=7), "Name": "TempProfile", "Platform": ["iOS"], "ProvisionedDevices": ["00000000-0000000000000000"], "TeamIdentifier": ["TEAMID1234"], "TeamName": "Temp", "TimeToLive": 7, "UUID": "11111111-1111-1111-1111-111111111111", "Version": 1, "Entitlements": {"application-identifier": "TEAMID1234.*", "com.apple.developer.team-identifier": "TEAMID1234", "get-task-allow": True}}; open("work/profile.plist", "wb").write(plistlib.dumps(data))'
           openssl cms -sign -in work/profile.plist -signer work/cert.pem -inkey work/key.pem -outform DER -nodetach -out work/dummy.mobileprovision
-          security cms -D -i work/dummy.mobileprovision
 
       - name: Run prepare_apple_app.py
         run: |
