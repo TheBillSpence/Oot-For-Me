@@ -26,18 +26,29 @@ jobs:
         run: |
           mkdir -p work/compile_root work/out
           APP="/Applications/Ocarina ReTuned.app"
-          RESOURCES="$APP/Contents/Resources"
-          KIT="$RESOURCES/setup"
 
-          "$KIT/python/bin/python3" "$KIT/project/tools/native/prepare_apple_app.py" \
-            --kit "$KIT/kit.json" \
-            --host "$APP/Contents/MacOS/retuned-native" \
+          # Auto-locate files inside the Mac .app bundle and template .ipa
+          PREP_SCRIPT=$(find "$APP" -name "prepare_apple_app.py" | head -n 1)
+          KIT_JSON=$(find "$APP" -name "kit.json" | head -n 1)
+          HOST_BIN=$(find "$APP/Contents/MacOS" -type f -perm +111 | head -n 1)
+          CTRL_DB=$(find "$APP" -name "gamecontrollerdb.txt" | head -n 1)
+          IOS_TEMPLATE=$(find "work/ios/Payload" -name "*.app" -maxdepth 2 | head -n 1)
+          BUNDLED_PY=$(find "$APP" -path "*/bin/python3" | head -n 1)
+          PYTHON_BIN="${BUNDLED_PY:-python3}"
+
+          echo "Using Python: $PYTHON_BIN"
+          echo "Using Script: $PREP_SCRIPT"
+          echo "Using Template: $IOS_TEMPLATE"
+
+          "$PYTHON_BIN" "$PREP_SCRIPT" \
+            --kit "$KIT_JSON" \
+            --host "$HOST_BIN" \
             --rom "work/game.3ds" \
             --data-root "work/compile_root" \
-            --template "work/ios/Payload/OcarinaReTuned.app" \
+            --template "$IOS_TEMPLATE" \
             --provisioning "work/dummy.mobileprovision" \
             --identity "$CERT_SHA1" \
-            --controller-db "$RESOURCES/gamecontrollerdb.txt" \
+            --controller-db "$CTRL_DB" \
             --platform ios \
             --output "work/out/Ocarina-ReTuned-Prepared.ipa"
 
