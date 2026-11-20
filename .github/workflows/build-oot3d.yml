@@ -110,6 +110,5 @@ jobs:
       - name: Upload Prepared IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          
-name: Ocarina-ReTuned-Prepared-iOS
+          name: Ocarina-ReTuned-Prepared-iOS
           path: work/out/Ocarina-ReTuned-Prepared.ipa
