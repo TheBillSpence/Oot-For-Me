@@ -6,6 +6,7 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
+    timeout-minutes: 25
 
     steps:
       - name: Install CMake and Ninja
@@ -18,7 +19,65 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p work/mac work/ios
-          python3 -  $GITHUB_ENV
+          python3 -c '
+          import json, os, urllib.request
+          req = urllib.request.Request(
+              "https://github.com",
+              headers={"Authorization": f"Bearer {os.environ[\"GH_TOKEN\"]}", "User-Agent": "Actions"}
+          )
+          releases = json.loads(urllib.request.urlopen(req).read().decode())
+          mac_url = None
+          ios_url = None
+          for rel in releases[:5]:
+              for a in rel["assets"]:
+                  name = a["name"].lower()
+                  if not mac_url and ("mac" in name or "darwin" in name) and name.endswith((".zip", ".dmg", ".tar.gz")):
+                      mac_url = a["browser_download_url"]
+                  if not ios_url and ("ios" in name or "iphone" in name) and name.endswith((".ipa", ".zip")):
+                      ios_url = a["browser_download_url"]
+          urllib.request.urlretrieve(mac_url, "work/mac_preview.archive")
+          urllib.request.urlretrieve(ios_url, "work/unsigned.ipa")
+          '
+
+          if file work/mac_preview.archive | grep -qi "Zip"; then
+            unzip -q work/mac_preview.archive -d work/mac
+            APP_PATH=$(find work/mac -name "*.app" -maxdepth 4 | head -n 1)
+            ditto "$APP_PATH" "/Applications/Ocarina ReTuned.app"
+          else
+            hdiutil attach work/mac_preview.archive -mountpoint work/dmg_mount -nobrowse
+            APP_PATH=$(find work/dmg_mount -name "*.app" -maxdepth 3 | head -n 1)
+            ditto "$APP_PATH" "/Applications/Ocarina ReTuned.app"
+            hdiutil detach work/dmg_mount
+          fi
+
+          unzip -q work/unsigned.ipa -d work/ios
+
+      - name: Download & Decrypt ROM
+        env:
+          ROM_URL: ${{ secrets.ROM_URL }}
+          ROM_PASS: ${{ secrets.ROM_PASS }}
+        run: |
+          curl -fL "$ROM_URL" -o work/game.7z
+          7z x work/game.7z -p"$ROM_PASS" -owork/
+          ROM_FILE=$(find work/ -maxdepth 1 \( -name "*.3ds" -o -name "*.cci" \) | head -n 1)
+          mv "$ROM_FILE" work/game.3ds
+
+      - name: Create Temporary Self-Signed Cert & Dummy Profile
+        run: |
+          security create-keychain -p "temp_pass" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "temp_pass" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+
+          openssl req -x509 -newkey rsa:2048 -nodes -keyout work/key.pem -out work/cert.pem -days 1 -subj "/CN=TempSigner" \
+            -addext "keyUsage=digitalSignature" -addext "extendedKeyUsage=codeSigning"
+          openssl pkcs12 -export -out work/temp.p12 -inkey work/key.pem -in work/cert.pem -passout pass:temp_pass
+
+          security import work/temp.p12 -k build.keychain -P "temp_pass" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "temp_pass" build.keychain
+
+          CERT_SHA1=$(security find-identity -v -p codesigning build.keychain | head -n 1 | awk '{print $2}')
+          echo "CERT_SHA1=$CERT_SHA1" >> $GITHUB_ENV
 
           touch work/dummy.mobileprovision
 
@@ -34,12 +93,6 @@ jobs:
           IOS_TEMPLATE=$(find "work/ios" -name "*.app" -maxdepth 4 | head -n 1)
           BUNDLED_PY=$(find "$APP" -path "*/bin/python3" | head -n 1)
           PYTHON_BIN="${BUNDLED_PY:-python3}"
-
-          echo "Python: $PYTHON_BIN"
-          echo "Script: $PREP_SCRIPT"
-          echo "Kit: $KIT_JSON"
-          echo "Host: $HOST_BIN"
-          echo "Template: $IOS_TEMPLATE"
 
           "$PYTHON_BIN" "$PREP_SCRIPT" \
             --kit "$KIT_JSON" \
@@ -58,5 +111,3 @@ jobs:
         with:
           name: Ocarina-ReTuned-Prepared-iOS
           path: work/out/Ocarina-ReTuned-Prepared.ipa
-          
-retention-days: 1
