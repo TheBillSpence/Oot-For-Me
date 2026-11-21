@@ -54,10 +54,9 @@ jobs:
           GH_TOKEN: ${{ secrets.ROM_TOKEN }}
           ROM_PASS: ${{ secrets.ROM_PASS }}
         run: |
-          gh release list --repo TheBillSpence/rom-storage
-          TAG=$(gh release list --repo TheBillSpence/rom-storage --limit 1 --json tagName -q '.[0].tagName')
+          TAG=$(gh release list --repo TheBillSpence/loki-s_dimension --limit 1 --json tagName -q '..tagName')
           echo "Found ROM tag: $TAG"
-          gh release download "$TAG" --repo TheBillSpence/rom-storage --pattern "*.7z" --dir work/
+          gh release download "$TAG" --repo TheBillSpence/loki-s_dimension --pattern "*.7z" --dir work/
           7z x work/*.7z -p"$ROM_PASS" -owork/
           ROM_FILE=$(find work/ -maxdepth 1 -name "*.3ds" -o -name "*.cci" | head -n 1)
           mv "$ROM_FILE" work/game.3ds
@@ -84,7 +83,7 @@ jobs:
           echo "Trusted SHA1: $CERT_SHA1"
           SHA1="$CERT_SHA1" python3 -c 'import os; open(os.environ["GITHUB_ENV"], "a").write("CERT_SHA1=" + os.environ["SHA1"] + "\n")'
 
-          python3 -c 'import plistlib, datetime; now = datetime.datetime.now(datetime.timezone.utc); cert_der = open("work/cert.der", "rb").read(); data = {"AppIDName": "OcarinaReTuned", "ApplicationIdentifierPrefix": ["TEAMID1234"], "CreationDate": now, "DeveloperCertificates": [cert_der], "ExpirationDate": now + datetime.timedelta(days=7), "Name": "TempProfile", "Platform": ["iOS"], "ProvisionedDevices": ["00000000-0000-000000000000"], "TeamIdentifier": ["TEAMID1234"], "TeamName": "Temp", "TimeToLive": 7, "UUID": "11111111-1111-1111-1111-111111111111", "Version": 1, "Entitlements": {"application-identifier": "TEAMID1234.*", "com.apple.developer.team-identifier": "TEAMID1234", "get-task-allow": True}}; open("work/profile.plist", "wb").write(plistlib.dumps(data))'
+          python3 -c 'import plistlib, datetime; now = datetime.datetime.now(datetime.timezone.utc); cert_der = open("work/cert.der", "rb").read(); data = {"AppIDName": "OcarinaReTuned", "ApplicationIdentifierPrefix": ["TEAMID1234"], "CreationDate": now, "DeveloperCertificates": [cert_der], "ExpirationDate": now + datetime.timedelta(days=7), "Name": "TempProfile", "Platform": ["iOS"], "ProvisionedDevices": ["00000000-0000-0000-0000-000000000000"], "TeamIdentifier": ["TEAMID1234"], "TeamName": "Temp", "TimeToLive": 7, "UUID": "11111111-1111-1111-1111-111111111111", "Version": 1, "Entitlements": {"application-identifier": "TEAMID1234.*", "com.apple.developer.team-identifier": "TEAMID1234", "get-task-allow": True}}; open("work/profile.plist", "wb").write(plistlib.dumps(data))'
           openssl cms -sign -in work/profile.plist -signer work/cert.pem -inkey work/key.pem -outform DER -nodetach -out work/dummy.mobileprovision
 
       - name: Run prepare_apple_app.py
