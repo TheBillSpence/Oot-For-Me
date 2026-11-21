@@ -54,9 +54,9 @@ jobs:
           GH_TOKEN: ${{ secrets.ROM_TOKEN }}
           ROM_PASS: ${{ secrets.ROM_PASS }}
         run: |
-          gh release download v1 --repo TheBillSpence/rom-storage --pattern "*.7z" --dir work/
+          gh release download --repo TheBillSpence/rom-storage --pattern "*.7z" --dir work/
           7z x work/*.7z -p"$ROM_PASS" -owork/
-          ROM_FILE=$(find work/ -maxdepth 1 \( -name "*.3ds" -o -name "*.cci" \) | head -n 1)
+          ROM_FILE=$(find work/ -maxdepth 1 -name "*.3ds" -o -name "*.cci" | head -n 1)
           mv "$ROM_FILE" work/game.3ds
 
       - name: Create Trusted Self-Signed Cert and CMS Profile
