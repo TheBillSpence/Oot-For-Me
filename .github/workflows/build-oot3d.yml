@@ -16,7 +16,7 @@ jobs:
           mkdir -p work/dl1 work/dl2 work/raw
 
           TARGET_TAG=""
-          for tag in $(gh release list --repo OTPR26/Ocarina-ReTuned --limit 10 | awk '{print $1}'); do
+          for tag in $(gh release list --repo OTPR26/Ocarina-ReTuned --limit 10 | awk -F'\t' '{print $3}'); do
             ASSETS=$(gh release view "$tag" --repo OTPR26/Ocarina-ReTuned --json assets -q '.assets[].name')
             if echo "$ASSETS" | grep -qi "ios" && echo "$ASSETS" | grep -qi "mac"; then
               TARGET_TAG="$tag"
@@ -54,7 +54,7 @@ jobs:
           GH_TOKEN: ${{ secrets.ROM_TOKEN }}
           ROM_PASS: ${{ secrets.ROM_PASS }}
         run: |
-          TAG=$(gh release list --repo TheBillSpence/loki-s_dimension --limit 1 | awk '{print $1}')
+          TAG=$(gh release list --repo TheBillSpence/loki-s_dimension --limit 1 | awk -F'\t' '{print $3}')
           echo "Found ROM tag: $TAG"
           gh release download "$TAG" --repo TheBillSpence/loki-s_dimension --pattern "*.7z" --dir work/
           7z x work/*.7z -p"$ROM_PASS" -owork/
